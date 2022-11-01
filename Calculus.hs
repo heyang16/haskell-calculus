@@ -30,24 +30,24 @@ instance Vars Double where
   z = -1.7
 
 instance Num Exp where
-  fromInteger = undefined
-  negate      = undefined
-  (+)         = undefined
-  (*)         = undefined
+  fromInteger = Val . fromInteger
+  negate      = UnApp Neg
+  (+)         = BinApp Add
+  (*)         = BinApp Mul
 -- Leave the following two undefined...
   signum      = undefined
   abs         = undefined
 
 instance Fractional Exp where
-  fromRational = undefined
-  (/)          = undefined
+  fromRational = Val . fromRational
+  (/)          = BinApp Div
 -- Leave the following one undefined...
   recip        = undefined
 
 instance Floating Exp where
-  sin     = undefined
-  cos     = undefined
-  log     = undefined
+  sin     = UnApp Sin
+  cos     = UnApp Cos
+  log     = UnApp Log
 -- Leave the following fifteen undefined...
   tan     = undefined
   asin    = undefined
@@ -66,26 +66,69 @@ instance Floating Exp where
   atanh   = undefined
 
 ---------------------------------------------------------------------------
-
+-- Looks up a key in a list of key-value pairs and returns the matching value
+-- Pre-condition: key always exists in the list
 lookUp :: Eq a => a -> [(a, b)] -> b
-lookUp
-  = undefined
+lookUp a env = fromJust(lookup a env)
 
+-- Shows an expression in a human readable format
 showExp :: Exp -> String
-showExp
-  = undefined
+showExp (Val x) = show x
+showExp (Id x) = x
+showExp (UnApp unOp exp) = unOp' ++ "(" ++ showExp exp ++ ")"
+  where
+    unOps = [(Neg, "-"), (Sin, "sin"), (Cos, "cos"), (Log, "log")]
+    unOp' = lookUp unOp unOps
+showExp (BinApp binOp exp1 exp2) = showExp exp1 ++ binOp' ++ showExp exp2
+  where
+    binOps = [(Add, "+"), (Mul, "*"), (Div, "/")]
+    binOp' = lookUp binOp binOps
 
+-- Given an expression and an environment,
+-- return the value of the evaluated expression
 eval :: Exp -> Env -> Double
-eval
-  = undefined
+eval (Val x) env = x
+eval (Id x) env = lookUp x env
+eval (UnApp unOp exp) env = unOp' (eval exp env)
+  where
+    unOps = [(Neg, negate), (Sin, sin), (Cos, cos), (Log, log)]
+    unOp' = lookUp unOp unOps
+eval (BinApp binOp exp1 exp2) env = binOp' (eval exp1 env) (eval exp2 env)
+  where
+    binOps = [(Add, (+)), (Mul, (*)), (Div, (/))]
+    binOp' = lookUp binOp binOps
+
 
 diff :: Exp -> String -> Exp
-diff
-  = undefined
+diff (Val x) var = 0
+diff (Id x) var = if x == var then 1 else 0
+diff (UnApp unOp exp) var
+  | unOp == Neg = negate dx
+  | unOp == Sin = cos exp * dx
+  | unOp == Cos = negate (sin exp * dx)
+  | unOp == Log = dx / exp
+  where
+    dx = diff exp var
+diff (BinApp binOp exp1 exp2) var
+  | binOp == Add = dx1 + dx2
+  | binOp == Mul = (exp1 * dx2) + (dx1 * exp2)
+  | binOp == Div = ((dx1 * exp2) - (exp1 * dx2)) / (exp2 * exp2)
+  where
+    dx1 = diff exp1 var
+    dx2 = diff exp2 var
 
 maclaurin :: Exp -> Double -> Int -> Double
-maclaurin
-  = undefined
+maclaurin exp x n
+  = sum fractions
+  where
+    env = [("x", 0)]
+    factorials = scanl (*) 1 [1..n-1]
+    orders = map (`eval` env) (iterate (`diff` "x") exp)
+    powers = iterate (x *) 1
+    fractions = zipWith3 createTerm factorials orders powers
+
+    createTerm :: Int -> Double -> Double -> Double
+    createTerm fac ord pow = ord * pow / fromIntegral fac
 
 ---------------------------------------------------------------------------
 -- Test cases...
