@@ -52,7 +52,9 @@ evalTests
     ]
 
 diffTests
-  = [ (e1, "x") ==>
+  = [ -- Test cases for diff without optimizations:
+      {-
+      (e1, "x") ==>
         BinApp Add (BinApp Mul (Val 5.0) (Val 1.0)) (BinApp Mul (Val 0.0)
                                                                 (Id "x"))
 
@@ -90,6 +92,32 @@ diffTests
                     (BinApp Add (BinApp Mul (Val 3.0) (BinApp Mul (Id "x")
                                                                   (Id "x")))
                                 (Val 2.0))
+      -}
+      -- Test cases for diff with optimizations:
+      (e1, "x") ==>
+        BinApp Add (Val 5.0) (BinApp Mul (Val 0.0) (Id "x"))
+
+    , (e2, "x") ==>
+        BinApp Add (Id "x") (Id "x")
+
+    , (e2, "y") ==>
+        BinApp Add (BinApp Add (BinApp Mul (Id "x") (Val 0.0)) 
+        (BinApp Mul (Val 0.0) (Id "x"))) (Val 1.0)
+
+    , (e4, "x") ==>
+        UnApp Neg (UnApp Neg (UnApp Sin (Id "x")))
+
+    , (e5, "x") ==>
+        BinApp Mul (UnApp Cos (BinApp Add (Val 1.0) 
+        (UnApp Log (BinApp Mul (Val 2.0) (Id "x"))))) 
+        (BinApp Div (BinApp Add (Val 2.0) (BinApp Mul (Val 0.0) (Id "x"))) 
+        (BinApp Mul (Val 2.0) (Id "x")))
+
+    , (e6, "x") ==>
+        BinApp Div (BinApp Add (BinApp Mul (Val 3.0) (BinApp Add (Id "x") 
+        (Id "x"))) (BinApp Mul (Val 0.0) (BinApp Mul (Id "x") (Id "x")))) 
+        (BinApp Add (BinApp Mul (Val 3.0) (BinApp Mul (Id "x") (Id "x"))) 
+        (Val 2.0))
     ]
 
 maclaurinTests
@@ -99,6 +127,8 @@ maclaurinTests
     , (UnApp Sin (Id "x"), 2, 7) ==> 0.9333333333333333
     , (UnApp Sin (Id "x"), 2, 9) ==> 0.9079365079365079
     , (UnApp Cos (Id "x"), 4, 9)  ==> (-0.39682539682539764)
+    , (UnApp Sin (Id "x"), 2, 15) ==> 0.9092974515196738
+    , (UnApp Sin (Id "x"), 2, 30) ==> 0.9092974268256817
     ]
 
 allTestCases

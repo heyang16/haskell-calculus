@@ -31,16 +31,22 @@ instance Vars Double where
 
 instance Num Exp where
   fromInteger = Val . fromInteger
-  negate      = UnApp Neg
-  (+)         = BinApp Add
-  (*)         = BinApp Mul
+  negate (Val 0) = 0
+  negate exp = UnApp Neg exp
+  (+) (Val 0) exp = exp
+  (+) exp (Val 0) = exp
+  (+) exp1 exp2 = BinApp Add exp1 exp2
+  (*) exp (Val 1) = exp
+  (*) (Val 1) exp = exp
+  (*) exp1 exp2 = BinApp Mul exp1 exp2
 -- Leave the following two undefined...
   signum      = undefined
   abs         = undefined
-
 instance Fractional Exp where
   fromRational = Val . fromRational
-  (/)          = BinApp Div
+  (/) (Val 0) exp = Val 0
+  (/) exp (Val 1) = exp
+  (/) exp1 exp2 = BinApp Div exp1 exp2
 -- Leave the following one undefined...
   recip        = undefined
 
@@ -88,17 +94,19 @@ showExp (BinApp binOp exp1 exp2) = showExp exp1 ++ binOp' ++ showExp exp2
 -- return the value of the evaluated expression
 eval :: Exp -> Env -> Double
 eval (Val x) env = x
-eval (Id x) env = lookUp x env
+eval (Id x) env = lookUp x env -- replaces x with its value stated in env
 eval (UnApp unOp exp) env = unOp' (eval exp env)
   where
+    -- table mapping unary operations to their respective functions
     unOps = [(Neg, negate), (Sin, sin), (Cos, cos), (Log, log)]
     unOp' = lookUp unOp unOps
 eval (BinApp binOp exp1 exp2) env = binOp' (eval exp1 env) (eval exp2 env)
   where
+    -- table mapping binary operations to their respective functions
     binOps = [(Add, (+)), (Mul, (*)), (Div, (/))]
     binOp' = lookUp binOp binOps
 
-
+-- Given an expression returns the derivative of that expression
 diff :: Exp -> String -> Exp
 diff (Val x) var = 0
 diff (Id x) var = if x == var then 1 else 0
@@ -117,18 +125,17 @@ diff (BinApp binOp exp1 exp2) var
     dx1 = diff exp1 var
     dx2 = diff exp2 var
 
+-- Approximate the value of a function (Exp) at a specified point
+-- (Double) using the first n (Int) terms of the Maclaurin series
 maclaurin :: Exp -> Double -> Int -> Double
 maclaurin exp x n
   = sum fractions
   where
     env = [("x", 0)]
-    factorials = scanl (*) 1 [1..n-1]
+    facs = scanl (*) 1 [1..n-1]
     orders = map (`eval` env) (iterate (`diff` "x") exp)
     powers = iterate (x *) 1
-    fractions = zipWith3 createTerm factorials orders powers
-
-    createTerm :: Int -> Double -> Double -> Double
-    createTerm fac ord pow = ord * pow / fromIntegral fac
+    fractions = zipWith3 (\a b c -> a * b / fromIntegral c) orders powers facs
 
 ---------------------------------------------------------------------------
 -- Test cases...
